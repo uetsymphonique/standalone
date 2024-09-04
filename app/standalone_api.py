@@ -1,7 +1,8 @@
-import aiofiles
 import os
+
+import aiofiles
 from aiohttp import web
-from aiohttp_jinja2 import template
+
 from plugins.standalone.app.standalone_svc import StandaloneService
 
 
@@ -10,7 +11,7 @@ class StandaloneApi:
     def __init__(self, services):
         self.auth_svc = services.get('auth_svc')
         self.data_svc = services.get('data_svc')
-        self.stanalone_svc = StandaloneService(services=services)
+        self.standalone_svc = StandaloneService(services=services)
 
     async def get_data(self, request):
         adversaries = sorted([a.display for a in await self.data_svc.locate('adversaries')],
@@ -21,15 +22,20 @@ class StandaloneApi:
 
     async def download_standalone_agent(self, request):
         data = dict(await request.json())
-        abilities = await self.stanalone_svc.get_abilities_by_adversary(data['adversary_id'])
-        file_path = await self.stanalone_svc.create_zip(abilities=abilities)
+        file_path = ''
+        content_type = 'application/zip'
+        if data['extension'] == '.tar.gz':
+            file_path = await self.standalone_svc.create_tar(adversary_id=data["adversary_id"])
+            content_type = 'application/gzip'
+        elif data['extension'] == '.zip':
+            file_path = await self.standalone_svc.create_zip(adversary_id=data["adversary_id"])
         try:
             response = web.StreamResponse(
                 status=200,
                 reason='OK',
                 headers={
                     'Content-Disposition': f'attachment; filename={os.path.basename(file_path)}',
-                    'Content-Type': 'application/zip',
+                    'Content-Type': f'{content_type}',
                 }
             )
 
@@ -52,12 +58,13 @@ class StandaloneApi:
         adversary_id = request.match_info.get("adversary_id")
         print(f'Adversary ID: {adversary_id}')
         try:
-            abilities = await self.stanalone_svc.get_abilities_by_adversary(adversary_id)
+            adversary = await self.standalone_svc.get_adversary_by_id(adversary_id=adversary_id)
+            abilities = await self.standalone_svc.get_abilities_by_adversary(adversary)
             ret = []
             for ability in abilities:
                 ret.append({
                     "ability": ability['ability_id'],
-                    "payloads": self.stanalone_svc.get_payload_paths(ability=ability)
+                    "payloads": self.standalone_svc.get_payload_paths(ability=ability)
                 })
             return web.json_response(dict(abilties=ret))
         except Exception as err:
