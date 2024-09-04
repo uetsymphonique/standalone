@@ -2,7 +2,7 @@ import aiofiles
 import os
 from aiohttp import web
 from aiohttp_jinja2 import template
-from plugins.standalones.app.standalone_svc import StandaloneService
+from plugins.standalone.app.standalone_svc import StandaloneService
 
 
 class StandaloneApi:

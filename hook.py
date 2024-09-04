@@ -1,4 +1,4 @@
-from plugins.standalones.app.standalone_api import StandaloneApi
+from plugins.standalone.app.standalone_api import StandaloneApi
 from app.service.auth_svc import check_authorization
 
 
