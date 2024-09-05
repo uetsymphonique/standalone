@@ -3,8 +3,8 @@ import shutil
 import tarfile
 import zipfile
 
+import yaml
 from app.utility.base_service import BaseService
-from tests.conftest import adversary
 
 APP_ROOT = os.path.abspath(os.path.dirname(__file__))
 PLUGIN_ROOT = os.path.join(APP_ROOT, '../..')
@@ -71,12 +71,17 @@ class StandaloneService(BaseService):
         for ability in abilities:
             ability_path = self.get_ability_path(ability)
             # print(ability_path)
-            if os.path.isfile(ability_path):
-                tactic_folder = os.path.join(ABILITIES_FOLDER, ability["tactic"])
-                os.makedirs(tactic_folder, exist_ok=True)
-                shutil.copy(ability_path, tactic_folder)
-            else:
-                print(f"File not found {ability_path}")
+            tactic_folder = os.path.join(ABILITIES_FOLDER, ability["tactic"])
+            os.makedirs(tactic_folder, exist_ok=True)
+            yaml_file_path = os.path.join(tactic_folder, f'{ability["ability_id"]}.yml')
+            with open(yaml_file_path, 'w') as yaml_file:
+                yaml.dump(ability, yaml_file)
+            # if os.path.isfile(ability_path):
+            #     tactic_folder = os.path.join(ABILITIES_FOLDER, ability["tactic"])
+            #     os.makedirs(tactic_folder, exist_ok=True)
+            #     shutil.copy(ability_path, tactic_folder)
+            # else:
+            #     print(f"File not found {ability_path}")
             payload_paths.update(self.get_payload_paths(ability))
         # print('copy payloads')
         for payload_path in payload_paths:

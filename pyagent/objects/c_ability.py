@@ -1,9 +1,10 @@
-import marshmallow as ma
+import uuid
 
-class AbilitySchema(ma.Schema):
-    ability_id = ma.fields.String()
-    tactic = ma.fields.String(load_default=None)
-    technique_name = ma.fields.String(load_default=None)
-    technique_id = ma.fields.String(load_default=None)
-    name = ma.fields.String(load_default=None)
-    description = ma.fields.String(load_default=None)
+
+class Ability:
+    def __init__(self, data):
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __repr__(self):
+            return str(self.__dict__)
