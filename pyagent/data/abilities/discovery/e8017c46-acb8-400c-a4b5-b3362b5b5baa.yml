@@ -23,7 +23,7 @@ executors:
   build_target: null
   cleanup: []
   code: null
-  command: sudo ifconfig
+  command: ifconfig
   language: null
   name: sh
   parsers: []

@@ -4,7 +4,7 @@ import aiofiles
 from aiohttp import web
 
 from plugins.standalone.app.standalone_svc import StandaloneService
-
+from plugins.standalone.util.exception_handler import exception_handler
 
 class StandaloneApi:
 
@@ -19,16 +19,18 @@ class StandaloneApi:
         planners = sorted([p.display for p in await self.data_svc.locate('planners')],
                           key=lambda p: p['name'])
         return web.json_response(dict(adversaries=adversaries, planners=planners))
-
+    @exception_handler
     async def download_standalone_agent(self, request):
         data = dict(await request.json())
+        print(data)
         file_path = ''
         content_type = 'application/zip'
         if data['extension'] == '.tar.gz':
-            file_path = await self.standalone_svc.create_tar(adversary_id=data["adversary_id"])
+            print('Download tar.gz agent is run')
+            file_path = await self.standalone_svc.create_tar(adversary_id=data["adversary_id"], planner_id=data["planner_id"])
             content_type = 'application/gzip'
         elif data['extension'] == '.zip':
-            file_path = await self.standalone_svc.create_zip(adversary_id=data["adversary_id"])
+            file_path = await self.standalone_svc.create_zip(adversary_id=data["adversary_id"], planner_id=data["planner_id"])
         try:
             response = web.StreamResponse(
                 status=200,
