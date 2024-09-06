@@ -1,2 +1,8 @@
 __pycache__
 tmp
+resources
+
+*.zip
+*.tar.gz
+*.sh
+*.txt
