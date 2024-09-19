@@ -1,11 +1,12 @@
-import aiofiles
+import logging
 import os
 
+import aiofiles
 from aiofiles.threadpool.binary import AsyncBufferedReader
 from aiohttp import web
 
 from plugins.standalone.app.standalone_svc import StandaloneService
-from plugins.standalone.util.exception_handler import exception_handler, async_exception_handler
+from plugins.standalone.util.exception_handler import async_exception_handler
 
 
 class StandaloneApi:
@@ -14,27 +15,37 @@ class StandaloneApi:
         self.auth_svc = services.get('auth_svc')
         self.data_svc = services.get('data_svc')
         self.standalone_svc = StandaloneService(services=services)
+
     @async_exception_handler
     async def get_data(self, request):
         adversaries = sorted([a.display for a in await self.data_svc.locate('adversaries')],
                              key=lambda a: a['name'])
         planners = sorted([p.display for p in await self.data_svc.locate('planners')],
                           key=lambda p: p['name'])
-        return web.json_response(dict(adversaries=adversaries, planners=planners))
+        sources = sorted([s.display for s in await self.data_svc.locate('sources')],
+                         key=lambda s: s['name'])
+        obfuscators = sorted([o.display for o in await self.data_svc.locate('obfuscators')],
+                             key=lambda o: o['name'])
+        return web.json_response(
+            dict(adversaries=adversaries, planners=planners, sources=sources, obfuscators=obfuscators))
 
     @async_exception_handler
     async def download_standalone_agent(self, request):
         data = dict(await request.json())
-        print(data)
+        # print(data)
         file_path = ''
         content_type = 'application/zip'
         if data['extension'] == '.tar.gz':
             file_path = await self.standalone_svc.create_tar(adversary_id=data["adversary_id"],
-                                                             planner_id=data["planner_id"])
+                                                             planner_id=data["planner_id"],
+                                                             source_id=data["source_id"],
+                                                             obfuscator=data["obfuscator"])
             content_type = 'application/gzip'
         elif data['extension'] == '.zip':
             file_path = await self.standalone_svc.create_zip(adversary_id=data["adversary_id"],
-                                                             planner_id=data["planner_id"])
+                                                             planner_id=data["planner_id"],
+                                                             source_id=data["source_id"],
+                                                             obfuscator=data["obfuscator"])
         try:
             response = web.StreamResponse(
                 status=200,
@@ -55,8 +66,9 @@ class StandaloneApi:
                     chunk = await f.read(1024)
 
             await response.write_eof()
-            os.remove(file_path) # Delete the ZIP file after the response is sent
-            self.standalone_svc.remove_resources()
+            os.remove(file_path)
+            logging.info(f'Cleanup {file_path}')
+            await self.standalone_svc.remove_resources()
             return response
         except Exception as e:
             print(e)
@@ -65,7 +77,7 @@ class StandaloneApi:
     @async_exception_handler
     async def get_abilities(self, request):
         adversary_id = request.match_info.get("adversary_id")
-        print(f'Adversary ID: {adversary_id}')
+        # print(f'Adversary ID: {adversary_id}')
         try:
             adversary = await self.standalone_svc.get_adversary_by_id(adversary_id=adversary_id)
             abilities = await self.standalone_svc.get_abilities_by_adversary(adversary)

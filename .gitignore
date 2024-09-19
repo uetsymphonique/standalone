@@ -3,6 +3,7 @@ tmp
 resources
 data
 payloads
+stupid
 
 *.zip
 *.tar.gz
