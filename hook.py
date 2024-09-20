@@ -1,6 +1,4 @@
 from plugins.standalone.app.standalone_api import StandaloneApi
-from app.service.auth_svc import check_authorization
-
 
 name = 'Standalone'
 description = 'Standalone api'
@@ -18,5 +16,3 @@ async def enable(services):
     # app.router.add_route('GET', '/plugin/standalone/get_obfuscators', standalone_api.get_obfuscators)
     app.router.add_route('POST', '/plugin/standalone/download', standalone_api.download_standalone_agent)
     app.router.add_route('GET', '/plugin/standalone/abilities/{adversary_id}', standalone_api.get_abilities)
-
-

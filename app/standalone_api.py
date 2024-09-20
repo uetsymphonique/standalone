@@ -7,7 +7,6 @@ from aiohttp import web
 
 from plugins.standalone.app.standalone_svc import StandaloneService
 from plugins.standalone.util.exception_handler import async_exception_handler
-from tests.conftest import adversary
 
 
 class StandaloneApi:
@@ -30,6 +29,7 @@ class StandaloneApi:
                              key=lambda o: o['name'])
         return web.json_response(
             dict(adversaries=adversaries, planners=planners, sources=sources, obfuscators=obfuscators))
+
     @async_exception_handler
     async def get_adversaries(self, request):
         adversaries = sorted([a.display for a in await self.data_svc.locate('adversaries')],
@@ -41,7 +41,7 @@ class StandaloneApi:
     @async_exception_handler
     async def get_abilities(self, request):
         abilities = sorted([a.display for a in await self.data_svc.locate('abilities')],
-                             key=lambda a: a['name'])
+                           key=lambda a: a['name'])
         return web.json_response(dict(abilities=[dict(
             ability_id=a["ability_id"], name=a["name"]) for a in abilities
         ]))
