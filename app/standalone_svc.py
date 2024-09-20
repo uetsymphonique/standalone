@@ -24,7 +24,7 @@ ABILITIES_FOLDER = os.path.join(DATA_FOLDER, 'abilities')
 ADVERSARY = os.path.join(DATA_FOLDER, 'adversary.yml')
 PLANNER = os.path.join(DATA_FOLDER, 'planner.yml')
 SOURCE = os.path.join(DATA_FOLDER, 'source.yml')
-OBFUSCATOR_INFO = os.path.join(DATA_FOLDER, 'obfuscator.txt')
+EXEC_INFO = os.path.join(DATA_FOLDER, 'exec.txt')
 
 
 class StandaloneService(BaseService):
@@ -110,9 +110,9 @@ class StandaloneService(BaseService):
         # os.makedirs(TMP_DIR, exist_ok=True)
         if os.path.exists(TMP_DIR):
             shutil.rmtree(TMP_DIR)
-        # shutil.copytree(PYAGENT_DIR, TMP_DIR)
+        shutil.copytree(CALDER_ALONE, TMP_DIR)
         os.makedirs(PAYLOADS_FOLDER, exist_ok=True)
-        os.makedirs(DATA_FOLDER, exist_ok=True)
+        # os.makedirs(DATA_FOLDER, exist_ok=True)
         os.makedirs(ABILITIES_FOLDER, exist_ok=True)
 
     @async_exception_handler
@@ -181,19 +181,22 @@ class StandaloneService(BaseService):
         shutil.copy(agent_path, TMP_DIR)
 
     @staticmethod
-    async def _inform_obfuscator(obfuscator='plain-text'):
-        logging.info(f'Informing obfuscator: {obfuscator}')
-        with open(OBFUSCATOR_INFO, 'w') as f:
-            f.write(obfuscator)
+    async def _inform_platform_and_executors(platform, executors):
+        logging.info(f'Informing platform: {platform}')
+        logging.info(f'Informing executors: {", ".join(executors)}')
+        with open(EXEC_INFO, 'w') as f:
+            f.write(platform)
+            f.write("\n")
+            f.write(", ".join(executors))
 
     @async_exception_handler
-    async def _encapsulating_resources(self, adversary_id, planner_id, source_id=None, obfuscator='plain-text',
-                                       platform=None):
+    async def _encapsulating_resources(self, adversary_id, planner_id, source_id=None,
+                                       platform=None, executors=None):
         await self._make_tmp_dir()
         await self._generate_adversary_and_ability_files(adversary_id)
         await self._generate_source_file(source_id)
         await self._generate_planner_file(planner_id)
-        await self._inform_obfuscator(obfuscator)
+        await self._inform_platform_and_executors(platform, executors)
 
     @staticmethod
     @async_exception_handler
@@ -202,9 +205,9 @@ class StandaloneService(BaseService):
         shutil.rmtree(TMP_DIR)
 
     @async_exception_handler
-    async def create_zip(self, adversary_id, planner_id, source_id, obfuscator):
+    async def create_zip(self, adversary_id, planner_id, source_id, platform, executors):
         await self._encapsulating_resources(adversary_id=adversary_id, planner_id=planner_id, source_id=source_id,
-                                            obfuscator=obfuscator)
+                                            platform=platform, executors=executors)
         zip_file_path = os.path.join(TMP_DIR, '../standalone.zip')
         with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for folder_name, subfolders, file_names in os.walk(TMP_DIR):
@@ -214,9 +217,9 @@ class StandaloneService(BaseService):
         return zip_file_path
 
     @async_exception_handler
-    async def create_tar(self, adversary_id, planner_id, source_id, obfuscator):
+    async def create_tar(self, adversary_id, planner_id, source_id, platform, executors):
         await self._encapsulating_resources(adversary_id=adversary_id, planner_id=planner_id, source_id=source_id,
-                                            obfuscator=obfuscator)
+                                            platform=platform, executors=executors)
         tar_file_path = os.path.join(TMP_DIR, '../standalone.tar.gz')
         with tarfile.open(tar_file_path, 'w:gz') as tar_file:
             tar_file.add(TMP_DIR, arcname='standalone')

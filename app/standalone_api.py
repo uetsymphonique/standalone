@@ -7,6 +7,7 @@ from aiohttp import web
 
 from plugins.standalone.app.standalone_svc import StandaloneService
 from plugins.standalone.util.exception_handler import async_exception_handler
+from tests.conftest import adversary
 
 
 class StandaloneApi:
@@ -14,6 +15,7 @@ class StandaloneApi:
     def __init__(self, services):
         self.auth_svc = services.get('auth_svc')
         self.data_svc = services.get('data_svc')
+        self.log = logging.getLogger('standalone_api')
         self.standalone_svc = StandaloneService(services=services)
 
     @async_exception_handler
@@ -28,6 +30,37 @@ class StandaloneApi:
                              key=lambda o: o['name'])
         return web.json_response(
             dict(adversaries=adversaries, planners=planners, sources=sources, obfuscators=obfuscators))
+    @async_exception_handler
+    async def get_adversaries(self, request):
+        adversaries = sorted([a.display for a in await self.data_svc.locate('adversaries')],
+                             key=lambda a: a['name'])
+        return web.json_response(dict(adversaries=[dict(
+            adversary_id=a["adversary_id"], name=a["name"]) for a in adversaries
+        ]))
+
+    @async_exception_handler
+    async def get_abilities(self, request):
+        abilities = sorted([a.display for a in await self.data_svc.locate('abilities')],
+                             key=lambda a: a['name'])
+        return web.json_response(dict(abilities=[dict(
+            ability_id=a["ability_id"], name=a["name"]) for a in abilities
+        ]))
+
+    @async_exception_handler
+    async def get_planners(self, request):
+        planners = sorted([p.display for p in await self.data_svc.locate('planners')],
+                          key=lambda p: p['name'])
+        return web.json_response(dict(planners=[dict(
+            planner_id=p["id"], name=p["name"]) for p in planners
+        ]))
+
+    @async_exception_handler
+    async def get_sources(self, request):
+        sources = sorted([s.display for s in await self.data_svc.locate('sources')],
+                         key=lambda s: s['name'])
+        return web.json_response(dict(sources=[dict(
+            source_id=s["id"], name=s["name"]) for s in sources
+        ]))
 
     @async_exception_handler
     async def download_standalone_agent(self, request):
@@ -39,13 +72,15 @@ class StandaloneApi:
             file_path = await self.standalone_svc.create_tar(adversary_id=data["adversary_id"],
                                                              planner_id=data["planner_id"],
                                                              source_id=data["source_id"],
-                                                             obfuscator=data["obfuscator"])
+                                                             platform=data["platform"],
+                                                             executors=data["executors"])
             content_type = 'application/gzip'
         elif data['extension'] == '.zip':
             file_path = await self.standalone_svc.create_zip(adversary_id=data["adversary_id"],
                                                              planner_id=data["planner_id"],
                                                              source_id=data["source_id"],
-                                                             obfuscator=data["obfuscator"])
+                                                             platform=data["platform"],
+                                                             executors=data["executors"])
         try:
             response = web.StreamResponse(
                 status=200,
