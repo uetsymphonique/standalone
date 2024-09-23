@@ -1,0 +1,3 @@
+[submodule "calder-alone"]
+	path = calder-alone
+	url = https://github.com/uetsymphonique/calder-alone
