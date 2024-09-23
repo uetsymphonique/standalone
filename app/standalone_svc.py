@@ -112,7 +112,11 @@ class StandaloneService(BaseService):
             shutil.rmtree(TMP_DIR)
         shutil.copytree(CALDER_ALONE, TMP_DIR)
         os.makedirs(PAYLOADS_FOLDER, exist_ok=True)
-        # os.makedirs(DATA_FOLDER, exist_ok=True)
+        if os.path.exists(ABILITIES_FOLDER):
+            shutil.rmtree(ABILITIES_FOLDER)
+        os.remove(ADVERSARY)
+        os.remove(SOURCE)
+        os.remove(PLANNER)
         os.makedirs(ABILITIES_FOLDER, exist_ok=True)
 
     @async_exception_handler
