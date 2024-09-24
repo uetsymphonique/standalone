@@ -5,10 +5,12 @@ import aiofiles
 from aiofiles.threadpool.binary import AsyncBufferedReader
 from aiohttp import web
 
+from app.service.auth_svc import for_all_public_methods, check_authorization
 from plugins.standalone.app.standalone_svc import StandaloneService
 from plugins.standalone.util.exception_handler import async_exception_handler
 
 
+@for_all_public_methods(check_authorization)
 class StandaloneApi:
 
     def __init__(self, services):
