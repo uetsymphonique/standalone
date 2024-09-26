@@ -1,3 +1,4 @@
+import glob
 import logging
 import os
 import shutil
@@ -16,6 +17,7 @@ CALDERA_ROOT = os.path.join(PLUGIN_ROOT, '..')
 TMP_DIR = os.path.join(APP_ROOT, '../tmp')
 CALDER_ALONE = os.path.join(APP_ROOT, '../calder-alone')
 PAYLOADS_FOLDER = TMP_DIR
+REMOVING_GLOBS = ['.git*', 'img*']
 
 DATA_FOLDER = os.path.join(TMP_DIR, 'data')
 SOURCES_FOLDER = os.path.join(DATA_FOLDER, 'sources')
@@ -26,6 +28,7 @@ PLANNER = os.path.join(DATA_FOLDER, 'planner.yml')
 SOURCE = os.path.join(DATA_FOLDER, 'source.yml')
 EXEC_INFO = os.path.join(DATA_FOLDER, 'exec.txt')
 
+class BreakLoop(Exception): pass
 
 class StandaloneService(BaseService):
     def __init__(self, services):
@@ -82,12 +85,15 @@ class StandaloneService(BaseService):
                     os.path.join(CALDERA_ROOT, f"data/plugins/stockpile/payloads"),
                     os.path.join(CALDERA_ROOT, f"data/plugins/atomic/payloads"),
                 ]
-                for payload_dir in payload_dirs:
-                    for folder_name, subfolders, file_names in os.walk(payload_dir):
-                        for file_name in file_names:
-                            if file_name == payload:
-                                path = os.path.join(folder_name, file_name)
-                                break
+                try:
+                    for payload_dir in payload_dirs:
+                        for folder_name, subfolders, file_names in os.walk(payload_dir):
+                            for file_name in file_names:
+                                if file_name == payload:
+                                    path = os.path.join(folder_name, file_name)
+                                    raise BreakLoop
+                except BreakLoop:
+                    pass
             payload_paths.append(path)
         return payload_paths
 
@@ -107,13 +113,24 @@ class StandaloneService(BaseService):
     @staticmethod
     @async_exception_handler
     async def _make_tmp_dir():
-        # os.makedirs(TMP_DIR, exist_ok=True)
         if os.path.exists(TMP_DIR):
             shutil.rmtree(TMP_DIR)
         shutil.copytree(CALDER_ALONE, TMP_DIR)
         os.makedirs(PAYLOADS_FOLDER, exist_ok=True)
         if os.path.exists(ABILITIES_FOLDER):
             shutil.rmtree(ABILITIES_FOLDER)
+        for pattern in REMOVING_GLOBS:
+            full_pattern = os.path.join(TMP_DIR, pattern)
+            for file_path in glob.glob(full_pattern):
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                        logging.info(f"File {file_path} was deleted!")
+                    elif os.path.isdir(file_path):
+                        os.rmdir(file_path)
+                        logging.info(f"Folder {file_path} was deleted!")
+                except Exception as e:
+                    logging.info(f"Error in deleting {file_path}: {e}")
         os.remove(ADVERSARY)
         os.remove(SOURCE)
         os.remove(PLANNER)
@@ -130,21 +147,25 @@ class StandaloneService(BaseService):
             yaml.dump(adversary, adversary_file)
         abilities = await self.get_abilities_by_adversary(adversary=adversary)
         payload_paths = set()
-        logging.info('Copy abilities of the chosen adversary')
+        logging.info('Dump abilities of the chosen adversary')
         for ability in abilities:
             ability_path = await self.get_ability_path(ability)
+            payload_paths.update(await self.get_payload_paths(ability))
             # print(ability_path)
             tactic_folder = os.path.join(ABILITIES_FOLDER, ability["tactic"])
             os.makedirs(tactic_folder, exist_ok=True)
-            if os.path.isfile(ability_path):
-                shutil.copy(ability_path, tactic_folder)
-                # logging.info(f'{ability["ability_id"]} was copied')
-            else:
-                logging.warning(f"Ability file not found {ability_path}")
-            # yaml_file_path = os.path.join(tactic_folder, f'{ability["ability_id"]}.yml')
-            # with open(yaml_file_path, 'w') as yaml_file:
-            #     yaml.dump(ability, yaml_file)
-            payload_paths.update(await self.get_payload_paths(ability))
+            # if os.path.isfile(ability_path):
+            #     shutil.copy(ability_path, tactic_folder)
+            #     # logging.info(f'{ability["ability_id"]} was copied')
+            # else:
+            #     logging.warning(f"Ability file not found {ability_path}")
+            yaml_file_path = os.path.join(tactic_folder, f'{ability["ability_id"]}.yml')
+            if 'ability_id' in ability:
+                ability["id"] = ability.pop('ability_id', None)
+            abs = [ability]
+            with open(yaml_file_path, 'w') as yaml_file:
+                yaml.dump(abs, yaml_file)
+                logging.info(f'{ability["ability_id"]} was dumped')
         logging.info('Copy payloads ...')
         for payload_path in payload_paths:
             if os.path.isfile(payload_path):
@@ -227,5 +248,4 @@ class StandaloneService(BaseService):
         tar_file_path = os.path.join(TMP_DIR, '../standalone.tar.gz')
         with tarfile.open(tar_file_path, 'w:gz') as tar_file:
             tar_file.add(TMP_DIR, arcname='standalone')
-        # self.remove_resources()
         return tar_file_path
