@@ -165,7 +165,7 @@ class StandaloneService(BaseService):
             abs = [ability]
             with open(yaml_file_path, 'w') as yaml_file:
                 yaml.dump(abs, yaml_file)
-                logging.info(f'{ability["ability_id"]} was dumped')
+                logging.info(f'{ability["id"]} was dumped')
         logging.info('Copy payloads ...')
         for payload_path in payload_paths:
             if os.path.isfile(payload_path):
