@@ -28,7 +28,9 @@ PLANNER = os.path.join(DATA_FOLDER, 'planner.yml')
 SOURCE = os.path.join(DATA_FOLDER, 'source.yml')
 EXEC_INFO = os.path.join(DATA_FOLDER, 'exec.txt')
 
+
 class BreakLoop(Exception): pass
+
 
 class StandaloneService(BaseService):
     def __init__(self, services):
@@ -41,22 +43,27 @@ class StandaloneService(BaseService):
     async def get_adversary_by_id(self, adversary_id):
         for a in await self.data_svc.locate('adversaries'):
             if a.display['adversary_id'] == adversary_id:
+                logging.debug(f'Adversary "{a.display["name"]}" found')
                 return a.display
+        logging.error(f'Could not find adversary: {adversary_id}')
         return None
 
     @async_exception_handler
     async def get_source_by_id(self, source_id):
         for s in await self.data_svc.locate('sources'):
             if s.display['id'] == source_id:
+                logging.debug(f'Source "{s.display["name"]}" found')
                 return s.display
+        logging.error(f'Could not find source: {source_id}')
         return None
 
     @async_exception_handler
     async def get_planner_by_id(self, planner_id):
         for p in await self.data_svc.locate('planners'):
             if p.display['id'] == planner_id:
-                # print(p.display)
+                logging.debug(f'Planner "{p.display["name"]}" found')
                 return p
+        logging.error(f'Could not find planner: {planner_id}')
         return None
 
     @async_exception_handler
@@ -65,36 +72,27 @@ class StandaloneService(BaseService):
                      a.display['ability_id'] in adversary["atomic_ordering"]]
         return abilities
 
-    @staticmethod
-    async def get_payload_paths(ability):
+    @async_exception_handler
+    async def get_payload_paths(self, ability):
         executors = ability['executors']
         payloads = set()
         for executor in executors:
             payloads.update([p for p in executor['payloads']])
-
         payload_paths = []
         for payload in payloads:
-            path = os.path.join(PLUGIN_ROOT, str(ability['plugin']) + f"/payloads/{payload}")
-            if not os.path.isfile(path):
-                payload_dirs = [
-                    os.path.join(CALDERA_ROOT, f"data/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/emu/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/access/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/response/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/sandcat/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/stockpile/payloads"),
-                    os.path.join(CALDERA_ROOT, f"data/plugins/atomic/payloads"),
-                ]
-                try:
-                    for payload_dir in payload_dirs:
-                        for folder_name, subfolders, file_names in os.walk(payload_dir):
-                            for file_name in file_names:
-                                if file_name == payload:
-                                    path = os.path.join(folder_name, file_name)
-                                    raise BreakLoop
-                except BreakLoop:
-                    pass
-            payload_paths.append(path)
+            payload_dirs = [os.path.join(CALDERA_ROOT, f"plugins/{plugin.name}/payloads") for plugin in
+                            await self.data_svc.locate('plugins')] + [os.path.join(CALDERA_ROOT, f"data/payloads")]
+            try:
+                for payload_dir in payload_dirs:
+                    for folder_name, subfolders, file_names in os.walk(payload_dir):
+                        for file_name in file_names:
+                            if file_name == payload:
+                                path = os.path.join(folder_name, file_name)
+                                payload_paths.append(path)
+                                raise BreakLoop
+                logging.warning(f"Can't find payload \"{payload}\"")
+            except BreakLoop:
+                pass
         return payload_paths
 
     @staticmethod
@@ -142,16 +140,15 @@ class StandaloneService(BaseService):
         Generates an adversary file based on the provided adversary ID.
         """
         adversary = await self.get_adversary_by_id(adversary_id=adversary_id)
-        logging.info(f'Generate adversary.yml for: {adversary["name"]}')
+        logging.info(f'Generate adversary.yml for: \"{adversary["name"]}\"')
         with open(ADVERSARY, 'w') as adversary_file:
             yaml.dump(adversary, adversary_file)
         abilities = await self.get_abilities_by_adversary(adversary=adversary)
         payload_paths = set()
-        logging.info('Dump abilities of the chosen adversary')
+        logging.info(f'Dumping abilities of the chosen adversary "{adversary["name"]}"')
         for ability in abilities:
-            ability_path = await self.get_ability_path(ability)
+            # ability_path = await self.get_ability_path(ability)
             payload_paths.update(await self.get_payload_paths(ability))
-            # print(ability_path)
             tactic_folder = os.path.join(ABILITIES_FOLDER, ability["tactic"])
             os.makedirs(tactic_folder, exist_ok=True)
             # if os.path.isfile(ability_path):
@@ -165,11 +162,12 @@ class StandaloneService(BaseService):
             abs = [ability]
             with open(yaml_file_path, 'w') as yaml_file:
                 yaml.dump(abs, yaml_file)
-                logging.info(f'{ability["id"]} was dumped')
-        logging.info('Copy payloads ...')
+                logging.info(f'YAML file for ability "{ability["name"]}" was dumped')
+        logging.info(f'Copying payloads for "{adversary["name"]}"')
         for payload_path in payload_paths:
             if os.path.isfile(payload_path):
                 shutil.copy(payload_path, PAYLOADS_FOLDER)
+                logging.info(f'Payload "{os.path.basename(payload_path)}" was copied from {payload_path}')
             else:
                 logging.warning(f"Payload not found {payload_path}")
 
