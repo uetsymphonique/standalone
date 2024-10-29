@@ -1,3 +1,4 @@
+import fnmatch
 import glob
 import logging
 import os
@@ -17,7 +18,14 @@ CALDERA_ROOT = os.path.join(PLUGIN_ROOT, '..')
 TMP_DIR = os.path.join(APP_ROOT, '../tmp')
 CALDER_ALONE = os.path.join(APP_ROOT, '../calder-alone')
 PAYLOADS_FOLDER = TMP_DIR
-REMOVING_GLOBS = ['.git*', 'img*']
+REMOVING_GLOBS = ['.git*', 'img*', '*.md', '*.py', 'app/*', 'plugins/*/app/*', 'plugins/*/*.py', 'requirements.txt']
+EXCEPTION_GLOBS = [
+    'app/data_encoders',
+    'app/learning',
+    'app/contacts',
+    'plugins/*/app/data_encoders',
+    'plugins/*/app/packers'
+]
 
 DATA_FOLDER = os.path.join(TMP_DIR, 'data')
 SOURCES_FOLDER = os.path.join(DATA_FOLDER, 'sources')
@@ -121,11 +129,15 @@ class StandaloneService(BaseService):
             full_pattern = os.path.join(TMP_DIR, pattern)
             for file_path in glob.glob(full_pattern):
                 try:
+                    if any(fnmatch.fnmatch(file_path, os.path.join(TMP_DIR, exception)) for exception in
+                           EXCEPTION_GLOBS):
+                        logging.info(f"Skipping {file_path} (matches exception pattern)")
+                        continue
                     if os.path.isfile(file_path):
                         os.remove(file_path)
                         logging.info(f"File {file_path} was deleted!")
                     elif os.path.isdir(file_path):
-                        os.rmdir(file_path)
+                        shutil.rmtree(file_path)
                         logging.info(f"Folder {file_path} was deleted!")
                 except Exception as e:
                     logging.info(f"Error in deleting {file_path}: {e}")
